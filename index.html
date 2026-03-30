@@ -736,7 +736,7 @@
             </div>
             <div class="stat-box">
                 <div class="stat-value" id="avgXwobaPlus">0</div>
-                <div class="stat-label">Avg xwOBA+</div>
+                <div class="stat-label">League Avg xwOBA</div>
             </div>
             <div class="stat-box">
                 <div class="stat-value" id="topXwoba">0</div>
@@ -23571,13 +23571,12 @@
             document.getElementById('totalPlayers').textContent = filteredPlayers.length;
             
             if (filteredPlayers.length > 0) {
-                const avgPlus = (filteredPlayers.reduce((sum, p) => sum + p.xwoba_plus, 0) / filteredPlayers.length).toFixed(0);
-                document.getElementById('avgXwobaPlus').textContent = avgPlus;
+                document.getElementById('avgXwobaPlus').textContent = LEAGUE_AVG_XWOBA.toFixed(3);
                 
                 const topXwoba = Math.max(...filteredPlayers.map(p => p.xwoba)).toFixed(3);
                 document.getElementById('topXwoba').textContent = topXwoba;
             } else {
-                document.getElementById('avgXwobaPlus').textContent = '0';
+                document.getElementById('avgXwobaPlus').textContent = LEAGUE_AVG_XWOBA.toFixed(3);
                 document.getElementById('topXwoba').textContent = '0';
             }
         }
