@@ -159,9 +159,6 @@
         thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            position: sticky;
-            top: 0;
-            z-index: 10;
         }
 
         th {
@@ -170,7 +167,11 @@
             font-weight: 600;
             cursor: pointer;
             user-select: none;
-            position: relative;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
 
         th:hover {
