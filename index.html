@@ -23696,7 +23696,7 @@
                     ${percentileRing(xwobaPercentile, "xwOBA", player.xwoba.toFixed(3), "Lg Avg: " + LEAGUE_AVG_XWOBA.toFixed(3))}
                     ${player.xslg !== undefined ? percentileRing(calcPct(activePlayers, p => p.xslg, player.xslg), "xSLG", player.xslg.toFixed(3), "Lg Avg: " + LEAGUE_AVG_XSLG.toFixed(3)) : ""}
                     ${player.wrc_plus !== undefined ? percentileRing(calcPct(activePlayers, p => p.wrc_plus, player.wrc_plus), "wRC+", player.wrc_plus, "Lg Avg: 100") : ""}
-                    ${percentileRing(calcPct(activePlayers, p => p.xwoba_rank ? (activePlayers.length - p.xwoba_rank) : undefined, activePlayers.length - player.xwoba_rank), "Rank", "#" + player.xwoba_rank, "of " + activePlayers.length)}
+                    ${percentileRing(Math.round(((activePlayers.length - player.xwoba_rank) / (activePlayers.length - 1)) * 100), "Rank", "#" + player.xwoba_rank, "of " + activePlayers.length)}
                 </div>
 
                 <div class="section-title">Actual Performance</div>
