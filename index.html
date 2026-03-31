@@ -23732,16 +23732,18 @@
             }
             
             const teamSelect = document.getElementById('teamFilter');
+            teamSelect.length = 1;
             teams.forEach(team => {
                 const option = document.createElement('option');
                 option.value = team;
                 option.textContent = team;
                 teamSelect.appendChild(option);
             });
-            
-            const positions = [...new Set(activePlayers.map(p => p.position))].sort();
-            
+
+            const positions = [...new Set(activePlayers.map(p => p.position).filter(Boolean))].sort();
+
             const posSelect = document.getElementById('positionFilter');
+            posSelect.length = 1;
             positions.forEach(pos => {
                 const option = document.createElement('option');
                 option.value = pos;
