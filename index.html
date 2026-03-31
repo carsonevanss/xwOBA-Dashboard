@@ -716,11 +716,21 @@
         <div class="controls">
 
             <div class="control-group">
-                <label>Season</label>
-                <div class="season-toggle">
-                    <button class="btn season-btn active" data-year="2025" onclick="switchSeason(2025)">2025</button>
-                    <button class="btn season-btn" data-year="2026" onclick="switchSeason(2026)">2026</button>
-                </div>
+                <label for="seasonSelect">Season</label>
+                <select id="seasonSelect" onchange="switchSeason(parseInt(this.value))">
+                    <option value="2026">2026</option>
+                    <option value="2025" selected>2025</option>
+                    <option value="2024">2024</option>
+                    <option value="2023">2023</option>
+                    <option value="2022">2022</option>
+                    <option value="2021">2021</option>
+                    <option value="2020">2020 ★</option>
+                    <option value="2019">2019</option>
+                    <option value="2018">2018</option>
+                    <option value="2017">2017</option>
+                    <option value="2016">2016</option>
+                    <option value="2015">2015</option>
+                </select>
             </div>
             <div class="control-group">
                 <label for="searchInput">Search</label>
@@ -837,6 +847,16 @@
     <script>
         // Season league averages — updater rewrites the 2026 values each day
         const SEASON_AVGS = {
+            2015: { xwoba: 0.309, woba: 0.313, xslg: 0.391 },
+            2016: { xwoba: 0.314, woba: 0.318, xslg: 0.407 },
+            2017: { xwoba: 0.317, woba: 0.321, xslg: 0.415 },
+            2018: { xwoba: 0.313, woba: 0.315, xslg: 0.400 },
+            2019: { xwoba: 0.319, woba: 0.320, xslg: 0.425 },
+            2020: { xwoba: 0.323, woba: 0.320, xslg: 0.416 },
+            2021: { xwoba: 0.317, woba: 0.314, xslg: 0.411 },
+            2022: { xwoba: 0.312, woba: 0.310, xslg: 0.402 },
+            2023: { xwoba: 0.320, woba: 0.318, xslg: 0.417 },
+            2024: { xwoba: 0.316, woba: 0.310, xslg: 0.406 },
             2025: { xwoba: 0.316, woba: 0.313, xslg: 0.411 },
             2026: { xwoba: 0.314, woba: 0.315, xslg: 0.386 },
         };
@@ -25737,8 +25757,9 @@
 
         // Filter out retired players
         let currentSeason = 2025;
+        const seasonCache = { 2025: playersData2025, 2026: playersData2026 };
         function getSeasonData(year) {
-            const raw = year === 2026 ? playersData2026 : playersData2025;
+            const raw = seasonCache[year] || [];
             return raw.filter(p => p.team_abbr !== 'RETIRED');
         }
         let activePlayers = getSeasonData(2025);
@@ -25746,19 +25767,33 @@
         let currentSort = { column: 'xwoba_plus', direction: 'desc' };
         let filteredPlayers = [...activePlayers];
 
-        function switchSeason(year) {
+        async function switchSeason(year) {
+            // Sync the dropdown in case called programmatically
+            document.getElementById('seasonSelect').value = year;
+
+            // Lazy-load historical seasons from JSON files
+            if (!seasonCache[year]) {
+                const tbody = document.querySelector('#playerTable tbody');
+                if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;opacity:0.6">Loading ' + year + ' data…</td></tr>';
+                try {
+                    const resp = await fetch(`data/${year}.json`);
+                    const data = await resp.json();
+                    if (data.league) SEASON_AVGS[year] = data.league;
+                    seasonCache[year] = data.players || [];
+                } catch(e) {
+                    console.error(`Failed to load ${year}:`, e);
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:#f66">Failed to load ' + year + ' data.</td></tr>';
+                    return;
+                }
+            }
+
             currentSeason = year;
             LEAGUE_AVG_XWOBA = SEASON_AVGS[year].xwoba;
             LEAGUE_AVG_WOBA  = SEASON_AVGS[year].woba;
             LEAGUE_AVG_XSLG  = SEASON_AVGS[year].xslg;
             activePlayers = getSeasonData(year);
 
-            // Update button styles
-            document.querySelectorAll('.season-btn').forEach(btn => {
-                btn.classList.toggle('active', parseInt(btn.dataset.year) === year);
-            });
-
-            // Reset PA filter: 2026 early season → show all, 2025 → 200
+            // Reset PA filter: 2026 early season → show all, others → 200
             const paFilter = document.getElementById('paFilter');
             if (year === 2026 && activePlayers.length > 0) {
                 const maxPa = Math.max(...activePlayers.map(p => p.pa));
