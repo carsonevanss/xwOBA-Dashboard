@@ -749,6 +749,15 @@
                     <option value="">All Positions</option>
                 </select>
             </div>
+            <div class="control-group">
+                <label for="batsFilter">Bats</label>
+                <select id="batsFilter">
+                    <option value="">L / R / S</option>
+                    <option value="L">Left (L)</option>
+                    <option value="R">Right (R)</option>
+                    <option value="S">Switch (S)</option>
+                </select>
+            </div>
             <button class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
             <button class="btn btn-primary" onclick="compareSelected()" id="compareBtn" disabled>Compare Selected (0)</button>
         </div>
@@ -23757,6 +23766,7 @@
             const paThreshold = parseInt(document.getElementById('paFilter').value);
             const teamFilter = document.getElementById('teamFilter').value;
             const posFilter = document.getElementById('positionFilter').value;
+            const batsFilter = document.getElementById('batsFilter').value;
 
             filteredPlayers = activePlayers.filter(player => {
                 const matchesSearch = player.full_name.toLowerCase().includes(search) ||
@@ -23765,8 +23775,9 @@
                 const matchesPA = player.pa >= paThreshold;
                 const matchesTeam = !teamFilter || player.team_abbr === teamFilter;
                 const matchesPos = !posFilter || player.position === posFilter;
-                
-                return matchesSearch && matchesPA && matchesTeam && matchesPos;
+                const matchesBats = !batsFilter || player.bats === batsFilter;
+
+                return matchesSearch && matchesPA && matchesTeam && matchesPos && matchesBats;
             });
 
             sortData();
@@ -23779,6 +23790,7 @@
             document.getElementById('paFilter').value = '200';
             document.getElementById('teamFilter').value = '';
             document.getElementById('positionFilter').value = '';
+            document.getElementById('batsFilter').value = '';
             selectedPlayers.clear();
             updateCompareButton();
             applyFilters();
@@ -24262,6 +24274,7 @@
         document.getElementById('paFilter').addEventListener('change', applyFilters);
         document.getElementById('teamFilter').addEventListener('change', applyFilters);
         document.getElementById('positionFilter').addEventListener('change', applyFilters);
+        document.getElementById('batsFilter').addEventListener('change', applyFilters);
 
         document.querySelectorAll('th.sortable').forEach(th => {
             th.addEventListener('click', () => {
