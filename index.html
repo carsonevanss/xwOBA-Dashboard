@@ -119,6 +119,55 @@
             background: #5a6268;
         }
 
+        .btn-export {
+            background: linear-gradient(135deg, #20c997, #0ca678);
+            color: white;
+        }
+        .btn-export:hover {
+            background: linear-gradient(135deg, #12b886, #099268);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(32, 201, 151, 0.4);
+        }
+
+        /* Export modal */
+        #exportModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+        #exportModal .export-inner {
+            background: #161b22;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            max-width: 95vw;
+        }
+        #exportModal h3 {
+            color: #e6edf3;
+            font-size: 1.1em;
+            margin: 0;
+        }
+        #exportPreview {
+            max-width: 860px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+        }
+        #exportModal .export-actions {
+            display: flex;
+            gap: 12px;
+        }
+
         .stats-summary {
             padding: 20px 30px;
             background: #e3f2fd;
@@ -813,6 +862,7 @@
             </div>
             <button class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
             <button class="btn btn-primary" onclick="compareSelected()" id="compareBtn" disabled>Compare Selected (0)</button>
+            <button class="btn btn-export" onclick="exportImage()">&#x1F4F7; Export Image</button>
         </div>
 
         <div class="stats-summary">
@@ -28058,6 +28108,215 @@
         // Initialize
         populateFilters();
         applyFilters();
+
+        // ── Image Export ──────────────────────────────────────────────────────────
+
+        function exportImage() {
+            const isTeams = currentView === 'teams';
+            const rows = isTeams ? filteredTeams : filteredPlayers.slice(0, 15);
+
+            const W = 1200, H = 675;
+            const canvas = document.createElement('canvas');
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = '#0d1117';
+            ctx.fillRect(0, 0, W, H);
+
+            // Header gradient bar
+            const grad = ctx.createLinearGradient(0, 0, W, 0);
+            grad.addColorStop(0, '#667eea');
+            grad.addColorStop(1, '#764ba2');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, 88);
+
+            // Title
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 26px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('MLB xwOBA+ Dashboard', 28, 36);
+
+            const viewLabel = isTeams
+                ? 'Team Rankings'
+                : 'Top 15  ·  sorted by ' + sortColumn.replace(/_/g, ' ');
+            ctx.font = '15px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+            ctx.fillText(currentSeason + ' Season  ·  ' + viewLabel, 28, 62);
+
+            ctx.font = '13px "Segoe UI", Arial, sans-serif';
+            ctx.fillStyle = 'rgba(255,255,255,0.65)';
+            ctx.textAlign = 'right';
+            ctx.fillText('carsonevanss.github.io/xwOBA-Dashboard', W - 28, 62);
+            ctx.textAlign = 'left';
+
+            // ── Column definitions ────────────────────────────────────────────────
+            const colDefs = isTeams
+                ? [
+                    { label: '#',      key: null,              w: 36,  align: 'center' },
+                    { label: 'TEAM',   key: 'team_name',       w: 200, align: 'left'   },
+                    { label: 'PA',     key: 'total_pa',        w: 80,  align: 'right'  },
+                    { label: 'xwOBA',  key: 'avg_xwoba',       w: 95,  align: 'right', dec: 3, pct: true },
+                    { label: 'wOBA',   key: 'avg_woba',        w: 90,  align: 'right', dec: 3, pct: true },
+                    { label: 'xwOBA+', key: 'avg_xwoba_plus',  w: 90,  align: 'right', dec: 0, pct: true },
+                    { label: 'wRC+',   key: 'avg_wrc_plus',    w: 90,  align: 'right', dec: 0, pct: true },
+                    { label: 'xSLG',   key: 'avg_xslg',        w: 90,  align: 'right', dec: 3, pct: true },
+                  ]
+                : [
+                    { label: '#',      key: null,              w: 36,  align: 'center' },
+                    { label: 'PLAYER', key: 'full_name',       w: 178, align: 'left'   },
+                    { label: 'POS',    key: 'position',        w: 52,  align: 'center' },
+                    { label: 'TEAM',   key: 'team_abbr',       w: 58,  align: 'center' },
+                    { label: 'PA',     key: 'pa',              w: 65,  align: 'right'  },
+                    { label: 'xwOBA',  key: 'xwoba',           w: 87,  align: 'right', dec: 3, pctKey: 'xwoba_percentile' },
+                    { label: 'wOBA',   key: 'woba',            w: 82,  align: 'right', dec: 3, pctKey: 'woba_percentile' },
+                    { label: 'xwOBA+', key: 'xwoba_plus',      w: 82,  align: 'right', dec: 0, pct: true },
+                    { label: 'wRC+',   key: 'wrc_plus',        w: 78,  align: 'right', dec: 0, pct: true },
+                    { label: 'xSLG',   key: 'xslg',            w: 82,  align: 'right', dec: 3, pct: true },
+                  ];
+
+            // ── Precompute percentile ranks for columns without a stored pctKey ──
+            function rankMap(arr, key) {
+                const vals = arr.map(r => r[key]).filter(v => v != null).sort((a,b)=>a-b);
+                const n = vals.length - 1;
+                const map = new Map();
+                arr.forEach(r => {
+                    if (r[key] == null) { map.set(r, null); return; }
+                    map.set(r, n > 0 ? (vals.indexOf(r[key]) / n) * 100 : 50);
+                });
+                return map;
+            }
+            const pctMaps = {};
+            const pctSrc = isTeams ? filteredTeams : filteredPlayers;
+            colDefs.forEach(col => {
+                if (col.pct && col.key) pctMaps[col.key] = rankMap(pctSrc, col.key);
+            });
+
+            function pctColor(pct) {
+                if (pct == null) return null;
+                if (pct >= 90) return '#CF4E21';
+                if (pct >= 70) return '#E88A5F';
+                if (pct >= 40) return '#9ca3af';
+                if (pct >= 20) return '#6DB0D9';
+                return '#186FA5';
+            }
+
+            // ── Layout ────────────────────────────────────────────────────────────
+            const tableTop = 96;
+            const footerH  = 44;
+            const headerRowH = 26;
+            const availRows  = H - tableTop - footerH - headerRowH;
+            const rowH = Math.max(12, Math.min(34, Math.floor(availRows / Math.max(rows.length, 1))));
+            const fontSize  = Math.max(10, Math.min(13, rowH - 5));
+            const labelSize = 10;
+
+            // Header row
+            ctx.fillStyle = '#1c2333';
+            ctx.fillRect(8, tableTop, W - 16, headerRowH);
+
+            ctx.font = `bold ${labelSize}px "Segoe UI", Arial, sans-serif`;
+            ctx.fillStyle = '#8b949e';
+            let cx = 18;
+            colDefs.forEach(col => {
+                if (col.align === 'right')        { ctx.textAlign = 'right';  ctx.fillText(col.label, cx + col.w - 8, tableTop + 17); }
+                else if (col.align === 'center')  { ctx.textAlign = 'center'; ctx.fillText(col.label, cx + col.w / 2, tableTop + 17); }
+                else                              { ctx.textAlign = 'left';   ctx.fillText(col.label, cx + 6, tableTop + 17); }
+                cx += col.w;
+            });
+
+            // Data rows
+            rows.forEach((row, i) => {
+                const rowY = tableTop + headerRowH + i * rowH;
+                ctx.fillStyle = i % 2 === 0 ? '#161b22' : '#0d1117';
+                ctx.fillRect(8, rowY, W - 16, rowH);
+
+                ctx.font = `${fontSize}px "Segoe UI", Arial, sans-serif`;
+                const textY = rowY + rowH / 2 + fontSize * 0.36;
+
+                let dx = 18;
+                colDefs.forEach(col => {
+                    let display, color;
+
+                    if (col.key === null) {
+                        display = String(i + 1);
+                        color   = '#6e7681';
+                    } else {
+                        const val = row[col.key];
+                        if (val == null) { display = '—'; color = '#6e7681'; }
+                        else {
+                            display = col.dec != null
+                                ? (col.dec > 0 ? Number(val).toFixed(col.dec) : String(Math.round(val)))
+                                : String(val);
+                            color = '#e6edf3';
+                            // Percentile coloring
+                            let pct = null;
+                            if (col.pctKey && row[col.pctKey] != null) pct = row[col.pctKey];
+                            else if (col.pct && pctMaps[col.key])      pct = pctMaps[col.key].get(row);
+                            const pc = pctColor(pct);
+                            if (pc) color = pc;
+                        }
+                    }
+
+                    ctx.fillStyle = color;
+                    if (col.align === 'right')       { ctx.textAlign = 'right';  ctx.fillText(display, dx + col.w - 8, textY); }
+                    else if (col.align === 'center') { ctx.textAlign = 'center'; ctx.fillText(display, dx + col.w / 2, textY); }
+                    else                             { ctx.textAlign = 'left';   ctx.fillText(display, dx + 6, textY); }
+                    dx += col.w;
+                });
+            });
+
+            // ── Footer ────────────────────────────────────────────────────────────
+            const fy = H - footerH;
+            ctx.fillStyle = '#161b22';
+            ctx.fillRect(0, fy, W, footerH);
+
+            // Divider line
+            ctx.strokeStyle = '#30363d';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(W, fy); ctx.stroke();
+
+            // Legend
+            const legend = [['#CF4E21','90+'],['#E88A5F','70-89'],['#9ca3af','40-69'],['#6DB0D9','20-39'],['#186FA5','<20']];
+            ctx.font = '11px "Segoe UI", Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#8b949e';
+            ctx.fillText('Percentile:', 18, fy + 27);
+            let lx = 95;
+            legend.forEach(([c, lbl]) => {
+                ctx.fillStyle = c;
+                ctx.fillRect(lx, fy + 15, 11, 11);
+                ctx.fillStyle = '#8b949e';
+                ctx.fillText(lbl, lx + 15, fy + 26);
+                lx += 52;
+            });
+
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#6e7681';
+            ctx.fillText('Data: Statcast / Baseball Savant', W - 18, fy + 27);
+
+            // ── Show preview ──────────────────────────────────────────────────────
+            const modal = document.getElementById('exportModal');
+            document.getElementById('exportPreview').src = canvas.toDataURL('image/png');
+            modal.style.display = 'flex';
+            document.getElementById('exportDownloadBtn').onclick = function() {
+                const a = document.createElement('a');
+                a.download = 'xwoba-' + (isTeams ? 'teams' : 'players') + '-' + currentSeason + '.png';
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            };
+        }
     </script>
+
+    <!-- Export image modal -->
+    <div id="exportModal" onclick="if(event.target===this)this.style.display='none'">
+        <div class="export-inner">
+            <h3>Export Image &mdash; right-click to copy, or download below</h3>
+            <img id="exportPreview" alt="Dashboard export preview">
+            <div class="export-actions">
+                <button class="btn btn-export" id="exportDownloadBtn">Download PNG</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('exportModal').style.display='none'">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
