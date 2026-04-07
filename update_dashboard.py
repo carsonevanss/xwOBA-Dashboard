@@ -262,6 +262,84 @@ def build_players_data(savant_rows, wrc_map):
     return players, league_xwoba, league_woba, league_xslg
 
 
+
+
+# ── Team aggregation ──────────────────────────────────────────────────────
+
+def build_teams_data(players):
+    """Aggregate player-level data into team-level records with percentiles."""
+    from collections import defaultdict
+
+    teams = defaultdict(lambda: {
+        "team_name": "",
+        "team_abbr": "",
+        "team_id": "",
+        "team_logo": "",
+        "xwobas": [],
+        "wobas": [],
+        "xwoba_pluses": [],
+        "wrc_pluses": [],
+        "xslgs": [],
+        "total_pa": 0,
+    })
+
+    for p in players:
+        abbr = p.get("team_abbr") or "FA"
+        t = teams[abbr]
+        if not t["team_name"]:
+            t["team_name"] = p.get("team_name", abbr)
+            t["team_abbr"] = abbr
+            t["team_id"]   = p.get("team_id", "")
+            t["team_logo"] = p.get("team_logo", "")
+        pa = p.get("pa", 0)
+        t["total_pa"] += pa
+        t["xwobas"].append((p.get("xwoba", 0), pa))
+        t["wobas"].append((p.get("woba", 0), pa))
+        t["xwoba_pluses"].append((p.get("xwoba_plus", 100), pa))
+        if p.get("wrc_plus") is not None:
+            t["wrc_pluses"].append((p["wrc_plus"], pa))
+        if p.get("xslg") is not None:
+            t["xslgs"].append((p["xslg"], pa))
+
+    def wa(pairs):
+        total_pa = sum(pa for _, pa in pairs)
+        if total_pa == 0:
+            return None
+        return round(sum(v * pa for v, pa in pairs) / total_pa, 3)
+
+    records = []
+    for abbr, t in teams.items():
+        avg_xwoba_plus_raw = wa(t["xwoba_pluses"])
+        avg_wrc_plus_raw   = wa(t["wrc_pluses"]) if t["wrc_pluses"] else None
+        rec = {
+            "team_name":      t["team_name"],
+            "team_abbr":      abbr,
+            "team_id":        t["team_id"],
+            "team_logo":      t["team_logo"],
+            "total_pa":       t["total_pa"],
+            "player_count":   len(t["xwobas"]),
+            "avg_xwoba":      wa(t["xwobas"]),
+            "avg_woba":       wa(t["wobas"]),
+            "avg_xwoba_plus": round(avg_xwoba_plus_raw) if avg_xwoba_plus_raw is not None else None,
+            "avg_wrc_plus":   round(avg_wrc_plus_raw)   if avg_wrc_plus_raw   is not None else None,
+            "avg_xslg":       wa(t["xslgs"]) if t["xslgs"] else None,
+        }
+        records.append(rec)
+
+    # Team-level percentiles (0-100) relative to all teams
+    for metric in ["avg_xwoba", "avg_woba", "avg_xwoba_plus", "avg_wrc_plus", "avg_xslg"]:
+        vals = [r[metric] for r in records if r[metric] is not None]
+        n = len(vals)
+        for r in records:
+            v = r[metric]
+            if v is None or n < 2:
+                r[metric + "_pct"] = None
+            else:
+                r[metric + "_pct"] = round((sum(1 for x in vals if x <= v) / n) * 100, 1)
+
+    records.sort(key=lambda r: (r["avg_xwoba_plus"] or 0), reverse=True)
+    return records
+
 # ── HTML update ───────────────────────────────────────────────────────────────
 
 def update_dashboard_html(players, league_xwoba, league_woba, league_xslg):
@@ -291,9 +369,23 @@ def update_dashboard_html(players, league_xwoba, league_woba, league_xslg):
     today = datetime.now().strftime("%B %d, %Y")
     new_html = re.sub(r"Last updated:.*?(?=<|$)", f"Last updated: {today}", new_html)
 
+    # Inject teamsData2026 right after playersData2026
+    teams = build_teams_data(players)
+    teams_json = json.dumps(teams, indent=2, ensure_ascii=False)
+    new_teams_block = f"const teamsData2026 = {teams_json};"
+    new_html, tcount = re.subn(
+        r"(const playersData2026\s*=\s*\[.*?\];)",
+        lambda m: m.group(0) + "\n        " + new_teams_block,
+        new_html,
+        flags=re.DOTALL,
+    )
+    if tcount == 0:
+        log.warning("Could not inject teamsData2026 -- playersData2026 block not found after replacement")
+
     DASHBOARD_PATH.write_text(new_html, encoding="utf-8")
-    log.info(f"  ✓ Wrote {len(players)} players to {DASHBOARD_PATH}")
-    log.info(f"  ✓ League xwOBA: {league_xwoba} | wOBA: {league_woba} | xSLG: {league_xslg}")
+    log.info(f"  \u2713 Wrote {len(players)} players to {DASHBOARD_PATH}")
+    log.info(f"  \u2713 Wrote {len(teams)} teams to {DASHBOARD_PATH}")
+    log.info(f"  \u2713 League xwOBA: {league_xwoba} | wOBA: {league_woba} | xSLG: {league_xslg}")
     return True
 
 
