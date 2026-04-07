@@ -704,6 +704,41 @@
         .ring-value  { font-size: 1.05em; font-weight: 700; color: #1a1a2e; text-align: center; }
         .ring-sublabel { font-size: 0.72em; color: #888; text-align: center; margin-top: -4px; }
 
+
+        /* ── View toggle (Players / Teams) ─────────────────────────── */
+        .view-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #dee2e6;
+        }
+        .view-toggle-btn {
+            padding: 10px 22px;
+            border: none;
+            background: white;
+            font-size: 1em;
+            font-weight: 600;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .view-toggle-btn:first-child { border-right: 1px solid #dee2e6; }
+        .view-toggle-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .view-toggle-btn:hover:not(.active) { background: #f0f0f8; }
+
+        /* hide irrelevant player-only filters in team view */
+        .player-only-filter { transition: opacity 0.2s; }
+        .team-view .player-only-filter { opacity: 0.35; pointer-events: none; }
+
+        /* ── Teams table ────────────────────────────────────────────── */
+        #teamsTableContainer { display: none; }
+        .team-cell { display: flex; align-items: center; gap: 10px; }
+        .team-logo-sm { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+        .team-name-cell { font-weight: 600; color: #667eea; }
         </style>
 </head>
 <body>
@@ -714,6 +749,14 @@
         </div>
 
         <div class="controls">
+
+            <div class="control-group">
+                <label style="font-size:0.9em;font-weight:600;color:#495057;">View</label>
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" id="viewPlayers" onclick="setView('players')">Players</button>
+                    <button class="view-toggle-btn" id="viewTeams" onclick="setView('teams')">Teams</button>
+                </div>
+            </div>
 
             <div class="control-group">
                 <label for="seasonSelect">Season</label>
@@ -736,7 +779,7 @@
                 <label for="searchInput">Search</label>
                 <input type="text" id="searchInput" placeholder="Player, team, or position...">
             </div>
-            <div class="control-group">
+            <div class="control-group player-only-filter">
                 <label for="paFilter">PA Threshold</label>
                 <select id="paFilter">
                     <option value="0">All Players</option>
@@ -753,13 +796,13 @@
                     <option value="">All Teams</option>
                 </select>
             </div>
-            <div class="control-group">
+            <div class="control-group player-only-filter">
                 <label for="positionFilter">Position</label>
                 <select id="positionFilter">
                     <option value="">All Positions</option>
                 </select>
             </div>
-            <div class="control-group">
+            <div class="control-group player-only-filter">
                 <label for="batsFilter">Bats</label>
                 <select id="batsFilter">
                     <option value="">L / R / S</option>
@@ -806,6 +849,28 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- Teams table -->
+        <div id="teamsTableContainer" class="table-container">
+            <div class="table-scroll">
+            <table id="teamsTable">
+                <thead>
+                    <tr>
+                        <th class="sortable-team" data-column="team_name">Team</th>
+                        <th class="sortable-team" data-column="total_pa">PA</th>
+                        <th class="sortable-team" data-column="avg_xwoba">xwOBA</th>
+                        <th class="sortable-team" data-column="avg_woba">wOBA</th>
+                        <th class="sortable-team" data-column="avg_xwoba_plus">xwOBA+</th>
+                        <th class="sortable-team" data-column="avg_wrc_plus">wRC+</th>
+                        <th class="sortable-team" data-column="avg_xslg">xSLG</th>
+                        <th class="sortable-team" data-column="player_count">Players</th>
+                    </tr>
+                </thead>
+                <tbody id="teamsTableBody">
                 </tbody>
             </table>
             </div>
@@ -27119,6 +27184,9 @@
 
         // Filter out retired players
         let currentSeason = 2025;
+        // teamsData2026 is injected by update_dashboard.py each day
+        // Provide a null fallback so JS does not crash on first load before pipeline runs
+        let _teamsData2026 = (typeof teamsData2026 !== 'undefined') ? teamsData2026 : null;
         const seasonCache = { 2025: playersData2025, 2026: playersData2026 };
         function getSeasonData(year) {
             const raw = seasonCache[year] || [];
@@ -27199,7 +27267,197 @@
             return gradients[playerId % gradients.length];
         }
 
-        function populateFilters() {
+
+        // ── View state ────────────────────────────────────────────────────────
+        let currentView = 'players';  // 'players' | 'teams'
+        let teamsCurrentSort = { column: 'avg_xwoba_plus', direction: 'desc' };
+        let filteredTeams = [];
+
+        function setView(view) {
+            currentView = view;
+            const playersBtn = document.getElementById('viewPlayers');
+            const teamsBtn   = document.getElementById('viewTeams');
+            // The first .table-container is the players container
+            const playerTableContainer = document.querySelector('.table-container:not(#teamsTableContainer)');
+            const teamsTableContainer  = document.getElementById('teamsTableContainer');
+            const controls = document.querySelector('.controls');
+
+            if (view === 'teams') {
+                playersBtn.classList.remove('active');
+                teamsBtn.classList.add('active');
+                playerTableContainer.style.display = 'none';
+                teamsTableContainer.style.display = 'block';
+                controls.classList.add('team-view');
+                document.getElementById('paFilter').value = '0';
+                renderTeamsTable();
+            } else {
+                playersBtn.classList.add('active');
+                teamsBtn.classList.remove('active');
+                playerTableContainer.style.display = '';
+                teamsTableContainer.style.display = 'none';
+                controls.classList.remove('team-view');
+            }
+        }
+
+        // Aggregate the currently-filtered players into team records
+        const MLB_TEAM_NAMES = {
+            'AZ':'Arizona Diamondbacks','ATL':'Atlanta Braves','BAL':'Baltimore Orioles',
+            'BOS':'Boston Red Sox','CHC':'Chicago Cubs','CWS':'Chicago White Sox',
+            'CIN':'Cincinnati Reds','CLE':'Cleveland Guardians','COL':'Colorado Rockies',
+            'DET':'Detroit Tigers','HOU':'Houston Astros','KC':'Kansas City Royals',
+            'LAA':'Los Angeles Angels','LAD':'Los Angeles Dodgers','MIA':'Miami Marlins',
+            'MIL':'Milwaukee Brewers','MIN':'Minnesota Twins','NYM':'New York Mets',
+            'NYY':'New York Yankees','ATH':'Athletics','PHI':'Philadelphia Phillies',
+            'PIT':'Pittsburgh Pirates','SD':'San Diego Padres','SF':'San Francisco Giants',
+            'SEA':'Seattle Mariners','STL':'St. Louis Cardinals','TB':'Tampa Bay Rays',
+            'TEX':'Texas Rangers','TOR':'Toronto Blue Jays','WSH':'Washington Nationals'
+        };
+        const MLB_TEAM_LOGOS = {
+            'AZ':'www.mlbstatic.com/team-logos/team-cap-on-light/109.svg',
+            'ATL':'www.mlbstatic.com/team-logos/team-cap-on-light/144.svg',
+            'BAL':'www.mlbstatic.com/team-logos/team-cap-on-light/110.svg',
+            'BOS':'www.mlbstatic.com/team-logos/team-cap-on-light/111.svg',
+            'CHC':'www.mlbstatic.com/team-logos/team-cap-on-light/112.svg',
+            'CWS':'www.mlbstatic.com/team-logos/team-cap-on-light/145.svg',
+            'CIN':'www.mlbstatic.com/team-logos/team-cap-on-light/113.svg',
+            'CLE':'www.mlbstatic.com/team-logos/team-cap-on-light/114.svg',
+            'COL':'www.mlbstatic.com/team-logos/team-cap-on-light/115.svg',
+            'DET':'www.mlbstatic.com/team-logos/team-cap-on-light/116.svg',
+            'HOU':'www.mlbstatic.com/team-logos/team-cap-on-light/117.svg',
+            'KC':'www.mlbstatic.com/team-logos/team-cap-on-light/118.svg',
+            'LAA':'www.mlbstatic.com/team-logos/team-cap-on-light/108.svg',
+            'LAD':'www.mlbstatic.com/team-logos/team-cap-on-light/119.svg',
+            'MIA':'www.mlbstatic.com/team-logos/team-cap-on-light/146.svg',
+            'MIL':'www.mlbstatic.com/team-logos/team-cap-on-light/158.svg',
+            'MIN':'www.mlbstatic.com/team-logos/team-cap-on-light/142.svg',
+            'NYM':'www.mlbstatic.com/team-logos/team-cap-on-light/121.svg',
+            'NYY':'www.mlbstatic.com/team-logos/team-cap-on-light/147.svg',
+            'ATH':'www.mlbstatic.com/team-logos/team-cap-on-light/133.svg',
+            'PHI':'www.mlbstatic.com/team-logos/team-cap-on-light/143.svg',
+            'PIT':'www.mlbstatic.com/team-logos/team-cap-on-light/134.svg',
+            'SD':'www.mlbstatic.com/team-logos/team-cap-on-light/135.svg',
+            'SF':'www.mlbstatic.com/team-logos/team-cap-on-light/137.svg',
+            'SEA':'www.mlbstatic.com/team-logos/team-cap-on-light/136.svg',
+            'STL':'www.mlbstatic.com/team-logos/team-cap-on-light/138.svg',
+            'TB':'www.mlbstatic.com/team-logos/team-cap-on-light/139.svg',
+            'TEX':'www.mlbstatic.com/team-logos/team-cap-on-light/140.svg',
+            'TOR':'www.mlbstatic.com/team-logos/team-cap-on-light/141.svg',
+            'WSH':'www.mlbstatic.com/team-logos/team-cap-on-light/120.svg'
+        };
+        const MLB_TEAMS = new Set(Object.keys(MLB_TEAM_NAMES));
+
+        function buildTeamsFromPlayers(players) {
+            const map = {};
+            players.forEach(function(p) {
+                const abbr = p.team_abbr || 'FA';
+                if (!MLB_TEAMS.has(abbr)) return;
+                if (!map[abbr]) {
+                    map[abbr] = {
+                        team_name:     MLB_TEAM_NAMES[abbr] || abbr,
+                        team_abbr:     abbr,
+                        team_id:       p.team_id || '',
+                        team_logo:     MLB_TEAM_LOGOS[abbr] || p.team_logo || '',
+                        total_pa:      0,
+                        player_count:  0,
+                        _xwobas:       [],
+                        _wobas:        [],
+                        _xwoba_pluses: [],
+                        _wrc_pluses:   [],
+                        _xslgs:        [],
+                    };
+                }
+                const t = map[abbr];
+                const pa = p.pa || 0;
+                t.total_pa     += pa;
+                t.player_count += 1;
+                t._xwobas.push([p.xwoba || 0, pa]);
+                t._wobas.push([p.woba || 0, pa]);
+                t._xwoba_pluses.push([p.xwoba_plus || 100, pa]);
+                if (p.wrc_plus !== undefined && p.wrc_plus !== null)
+                    t._wrc_pluses.push([p.wrc_plus, pa]);
+                if (p.xslg !== undefined && p.xslg !== null)
+                    t._xslgs.push([p.xslg, pa]);
+            });
+
+            function wa(pairs) {
+                const tot = pairs.reduce(function(s, x) { return s + x[1]; }, 0);
+                if (tot === 0) return null;
+                return Math.round(pairs.reduce(function(s, x) { return s + x[0] * x[1]; }, 0) / tot * 1000) / 1000;
+            }
+
+            return Object.values(map).map(function(t) {
+                const rawPlus = wa(t._xwoba_pluses);
+                const rawWrc  = t._wrc_pluses.length ? wa(t._wrc_pluses) : null;
+                return {
+                    team_name:      t.team_name,
+                    team_abbr:      t.team_abbr,
+                    team_id:        t.team_id,
+                    team_logo:      t.team_logo,
+                    total_pa:       t.total_pa,
+                    player_count:   t.player_count,
+                    avg_xwoba:      wa(t._xwobas),
+                    avg_woba:       wa(t._wobas),
+                    avg_xwoba_plus: rawPlus !== null ? Math.round(rawPlus) : null,
+                    avg_wrc_plus:   rawWrc  !== null ? Math.round(rawWrc)  : null,
+                    avg_xslg:       t._xslgs.length ? wa(t._xslgs) : null,
+                };
+            });
+        }
+
+        function sortTeamsData() {
+            filteredTeams.sort(function(a, b) {
+                let aVal = a[teamsCurrentSort.column];
+                let bVal = b[teamsCurrentSort.column];
+                if (aVal === null || aVal === undefined)
+                    aVal = teamsCurrentSort.direction === 'asc' ? Infinity : -Infinity;
+                if (bVal === null || bVal === undefined)
+                    bVal = teamsCurrentSort.direction === 'asc' ? Infinity : -Infinity;
+                if (typeof aVal === 'string') {
+                    aVal = aVal.toLowerCase();
+                    bVal = String(bVal).toLowerCase();
+                }
+                return teamsCurrentSort.direction === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+            });
+        }
+
+        function renderTeamsTable() {
+            const sourcePlayers = activePlayers;
+            try {
+                filteredTeams = buildTeamsFromPlayers(sourcePlayers);
+            } catch(e) {
+                console.error('buildTeamsFromPlayers error:', e);
+                filteredTeams = [];
+            }
+            sortTeamsData();
+
+            const tbody = document.getElementById('teamsTableBody');
+            tbody.innerHTML = '';
+
+            if (filteredTeams.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="no-data">No team data available (players: ' + sourcePlayers.length + ')</td></tr>';
+                return;
+            }
+
+            filteredTeams.forEach(function(team) {
+                const logoUrl  = team.team_logo ? 'https://' + team.team_logo : '';
+                const logoHtml = logoUrl
+                    ? '<img class="team-logo-sm" src="' + logoUrl + '" alt="' + team.team_abbr + '" onerror="this.style.display=\'none\'">'
+                    : '';
+                const row = tbody.insertRow();
+                row.innerHTML =
+                    '<td><div class="team-cell">' + logoHtml +
+                        '<span class="team-name-cell">' + team.team_name + '</span></div></td>' +
+                    '<td>' + team.total_pa.toLocaleString() + '</td>' +
+                    '<td>' + (team.avg_xwoba  !== null ? team.avg_xwoba.toFixed(3)  : '—') + '</td>' +
+                    '<td>' + (team.avg_woba   !== null ? team.avg_woba.toFixed(3)   : '—') + '</td>' +
+                    '<td>' + (team.avg_xwoba_plus !== null ? team.avg_xwoba_plus    : '—') + '</td>' +
+                    '<td>' + (team.avg_wrc_plus   !== null ? team.avg_wrc_plus      : '—') + '</td>' +
+                    '<td>' + (team.avg_xslg  !== null ? team.avg_xslg.toFixed(3)   : '—') + '</td>' +
+                    '<td>' + team.player_count + '</td>';
+            });
+        }
+
+                function populateFilters() {
             // Only show 30 MLB teams + FA
             const mlbTeams = [
                 'AZ', 'ATL', 'BAL', 'BOS', 'CHC', 'CWS', 'CIN', 'CLE', 
@@ -27259,6 +27517,7 @@
             sortData();
             renderTable();
             updateStats();
+            if (currentView === 'teams') renderTeamsTable();
         }
 
         function resetFilters() {
@@ -27751,6 +28010,22 @@
         document.getElementById('teamFilter').addEventListener('change', applyFilters);
         document.getElementById('positionFilter').addEventListener('change', applyFilters);
         document.getElementById('batsFilter').addEventListener('change', applyFilters);
+
+        document.querySelectorAll('th.sortable-team').forEach(function(th) {
+            th.addEventListener('click', function() {
+                const column = th.dataset.column;
+                if (teamsCurrentSort.column === column) {
+                    teamsCurrentSort.direction = teamsCurrentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    teamsCurrentSort.column = column;
+                    teamsCurrentSort.direction = 'desc';
+                }
+                document.querySelectorAll('th.sortable-team').forEach(function(h) { h.classList.remove('sort-asc', 'sort-desc'); });
+                th.classList.add(teamsCurrentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+                sortTeamsData();
+                renderTeamsTable();
+            });
+        });
 
         document.querySelectorAll('th.sortable').forEach(th => {
             th.addEventListener('click', () => {
