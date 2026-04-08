@@ -831,10 +831,10 @@
             <div class="control-group player-only-filter">
                 <label for="paFilter">PA Threshold</label>
                 <select id="paFilter">
-                    <option value="0">All Players</option>
+                    <option value="0" selected>All Players</option>
                     <option value="50">50+ PA</option>
                     <option value="100">100+ PA</option>
-                    <option value="200" selected>200+ PA</option>
+                    <option value="200">200+ PA</option>
                     <option value="300">300+ PA</option>
                     <option value="500">500+ PA</option>
                 </select>
@@ -27572,7 +27572,7 @@
 
         function resetFilters() {
             document.getElementById('searchInput').value = '';
-            document.getElementById('paFilter').value = '200';
+            document.getElementById('paFilter').value = currentSeason === 2026 ? '0' : '200';
             document.getElementById('teamFilter').value = '';
             document.getElementById('positionFilter').value = '';
             document.getElementById('batsFilter').value = '';
