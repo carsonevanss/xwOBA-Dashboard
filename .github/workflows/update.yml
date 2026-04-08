@@ -2,7 +2,10 @@ name: Update xwOBA Dashboard
 
 on:
   schedule:
-    - cron: '0 12 * * *'  # noon UTC = 8 AM ET, every day
+    - cron: '0 13 * * *'  # 9 AM ET  — overnight games processed
+    - cron: '0 19 * * *'  # 3 PM ET  — day games wrapped
+    - cron: '0  0 * * *'  # 8 PM ET  — evening games finishing
+    - cron: '0  6 * * *'  # 2 AM ET  — West Coast late games done
   workflow_dispatch:       # manual "Run workflow" button in GitHub UI
 
 jobs:
@@ -31,4 +34,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git diff --staged --quiet || (git commit -m "Daily update $(date +'%Y-%m-%d')" && git push)
+          git diff --staged --quiet || (git commit -m "Auto-update $(date +'%Y-%m-%d %H:%M UTC')" && git push)
