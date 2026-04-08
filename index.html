@@ -810,8 +810,8 @@
             <div class="control-group">
                 <label for="seasonSelect">Season</label>
                 <select id="seasonSelect" onchange="switchSeason(parseInt(this.value))">
-                    <option value="2026">2026</option>
-                    <option value="2025" selected>2025</option>
+                    <option value="2026" selected>2026</option>
+                    <option value="2025">2025</option>
                     <option value="2024">2024</option>
                     <option value="2023">2023</option>
                     <option value="2022">2022</option>
@@ -27233,7 +27233,7 @@
 ];  // filled by updater each day;
 
         // Filter out retired players
-        let currentSeason = 2025;
+        let currentSeason = 2026;
         // teamsData2026 is injected by update_dashboard.py each day
         // Provide a null fallback so JS does not crash on first load before pipeline runs
         let _teamsData2026 = (typeof teamsData2026 !== 'undefined') ? teamsData2026 : null;
