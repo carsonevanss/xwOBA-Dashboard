@@ -28113,7 +28113,7 @@
 
         async function exportImage() {
             const isTeams = currentView === 'teams';
-            const rows = isTeams ? filteredTeams : filteredPlayers.slice(0, 15);
+            const rows = isTeams ? filteredTeams : filteredPlayers.slice(0, 20);
 
             // Pre-load logos (fail silently if CORS blocked)
             const logoCache = {};
@@ -28151,7 +28151,7 @@
 
             const viewLabel = isTeams
                 ? 'Team Rankings'
-                : 'Top 15  ·  sorted by ' + sortColumn.replace(/_/g, ' ');
+                : 'Top 20  ·  sorted by ' + sortColumn.replace(/_/g, ' ');
             ctx.font = '15px "Segoe UI", Arial, sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.85)';
             ctx.fillText(currentSeason + ' Season  ·  ' + viewLabel, MARGIN + 10, 62);
