@@ -28179,7 +28179,7 @@
 
             const viewLabel = isTeams
                 ? 'Team Rankings'
-                : 'Top 20  ·  sorted by ' + sortColumn.replace(/_/g, ' ');
+                : 'Top 20  ·  sorted by ' + currentSort.column.replace(/_/g, ' ');
             ctx.font = '15px "Segoe UI", Arial, sans-serif';
             ctx.fillStyle = 'rgba(255,255,255,0.85)';
             ctx.fillText(currentSeason + ' Season  ·  ' + viewLabel, MARGIN + 10, 62);
