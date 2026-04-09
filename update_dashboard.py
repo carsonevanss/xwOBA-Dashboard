@@ -369,18 +369,29 @@ def update_dashboard_html(players, league_xwoba, league_woba, league_xslg):
     today = datetime.now().strftime("%B %d, %Y")
     new_html = re.sub(r"Last updated:.*?(?=<|$)", f"Last updated: {today}", new_html)
 
-    # Inject teamsData2026 right after playersData2026
+    # Inject/replace teamsData2026 (replace existing to avoid duplicates)
     teams = build_teams_data(players)
     teams_json = json.dumps(teams, indent=2, ensure_ascii=False)
     new_teams_block = f"const teamsData2026 = {teams_json};"
+
+    # Try to replace existing teamsData2026 block first
     new_html, tcount = re.subn(
-        r"(const playersData2026\s*=\s*\[.*?\];)",
-        lambda m: m.group(0) + "\n        " + new_teams_block,
+        r"const teamsData2026\s*=\s*\[.*?\];",
+        new_teams_block,
         new_html,
         flags=re.DOTALL,
     )
     if tcount == 0:
-        log.warning("Could not inject teamsData2026 -- playersData2026 block not found after replacement")
+        # Not found yet - inject right after playersData2026
+        new_html, tcount = re.subn(
+            r"(const playersData2026\s*=\s*\[.*?\];)",
+            lambda m: m.group(0) + "
+        " + new_teams_block,
+            new_html,
+            flags=re.DOTALL,
+        )
+        if tcount == 0:
+            log.warning("Could not inject teamsData2026 -- playersData2026 block not found after replacement")
 
     DASHBOARD_PATH.write_text(new_html, encoding="utf-8")
     log.info(f"  \u2713 Wrote {len(players)} players to {DASHBOARD_PATH}")
