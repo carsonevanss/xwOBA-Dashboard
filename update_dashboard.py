@@ -385,8 +385,7 @@ def update_dashboard_html(players, league_xwoba, league_woba, league_xslg):
         # Not found yet - inject right after playersData2026
         new_html, tcount = re.subn(
             r"(const playersData2026\s*=\s*\[.*?\];)",
-            lambda m: m.group(0) + "
-        " + new_teams_block,
+            lambda m: m.group(0) + "\n        " + new_teams_block,
             new_html,
             flags=re.DOTALL,
         )
